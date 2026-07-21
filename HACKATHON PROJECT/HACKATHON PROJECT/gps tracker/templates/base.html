@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="GPS Emergency Tracker — Real-time location tracking and emergency response system">
+  <title>{% block title %}GPS Emergency Tracker{% endblock %}</title>
+
+  <!-- Styles -->
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+
+  <!-- Leaflet CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+
+  {% block extra_head %}{% endblock %}
+</head>
+<body>
+
+<!-- ── Navbar ── -->
+<nav class="navbar">
+  <a class="navbar-brand" href="{{ url_for('index') }}">
+    <div class="logo-icon">🛰️</div>
+    GPS Tracker
+  </a>
+
+  {% if current_user.is_authenticated %}
+  <ul class="navbar-nav">
+    <li><a href="{{ url_for('tracker') }}"    class="{{ 'active' if request.endpoint == 'tracker'    }}">📍 Tracker</a></li>
+    <li><a href="{{ url_for('my_devices') }}" class="{{ 'active' if request.endpoint == 'my_devices' }}">📱 My Devices</a></li>
+    <li><a href="{{ url_for('contacts') }}"   class="{{ 'active' if request.endpoint == 'contacts'   }}">👥 Contacts</a></li>
+    <li><a href="{{ url_for('history') }}"    class="{{ 'active' if request.endpoint == 'history'    }}">📋 History</a></li>
+    <li><a href="{{ url_for('settings') }}"   class="{{ 'active' if request.endpoint == 'settings'   }}">⚙️ Settings</a></li>
+    {% if current_user.is_admin %}
+    <li><a href="{{ url_for('dashboard') }}"  class="{{ 'active' if request.endpoint == 'dashboard'  }}">🏠 Dashboard</a></li>
+    {% endif %}
+  </ul>
+  <div class="navbar-actions">
+    <span style="font-size:.85rem;color:var(--text-secondary)">👤 {{ current_user.name }}</span>
+    <a href="{{ url_for('logout') }}" class="btn btn-ghost btn-sm">Logout</a>
+  </div>
+  {% else %}
+  <div class="navbar-actions">
+    <a href="{{ url_for('login') }}"    class="btn btn-ghost btn-sm">Login</a>
+    <a href="{{ url_for('register') }}" class="btn btn-primary btn-sm">Get Started</a>
+  </div>
+  {% endif %}
+</nav>
+
+<!-- ── Flash Messages ── -->
+{% with messages = get_flashed_messages(with_categories=true) %}
+  {% if messages %}
+  <div class="flash-messages">
+    {% for category, message in messages %}
+    <div class="alert alert-{{ category }}">
+      {% if category == 'success' %}✅{% elif category == 'danger' %}❌{% elif category == 'warning' %}⚠️{% else %}ℹ️{% endif %}
+      {{ message }}
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+{% endwith %}
+
+<!-- ── Toast Container ── -->
+<div class="toast-container" id="toast-container"></div>
+
+<!-- ── Page Content ── -->
+{% block content %}{% endblock %}
+
+<!-- ── Scripts ── -->
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.min.js"></script>
+{% block extra_scripts %}{% endblock %}
+
+</body>
+</html>

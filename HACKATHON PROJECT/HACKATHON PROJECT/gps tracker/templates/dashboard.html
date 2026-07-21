@@ -1,0 +1,166 @@
+{% extends "base.html" %}
+{% block title %}Admin Dashboard — GPS Emergency Tracker{% endblock %}
+{% block extra_head %}
+<script src="{{ url_for('static', filename='js/dashboard.js') }}" defer></script>
+{% endblock %}
+
+{% block content %}
+<div class="page">
+  <div class="container-fluid">
+
+    <!-- Header -->
+    <div style="margin-bottom:28px">
+      <h1 class="section-title">🏠 Admin Dashboard</h1>
+      <p class="section-sub">Real-time monitoring of all users and emergency alerts</p>
+    </div>
+
+    <!-- Stats -->
+    <div class="stats-grid" style="margin-bottom:24px">
+      <div class="stat-card">
+        <div class="stat-value" style="color:var(--accent)">{{ users|length }}</div>
+        <div class="stat-label">Total Users</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" style="color:var(--success)">{{ active_users }}</div>
+        <div class="stat-label">Active Now</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" style="color:var(--warning)">{{ total_alerts }}</div>
+        <div class="stat-label">Total Alerts</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" style="color:var(--danger)">{{ unresolved }}</div>
+        <div class="stat-label">Unresolved</div>
+      </div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 380px;gap:20px;align-items:start">
+
+      <!-- Left: Map + Users -->
+      <div style="display:flex;flex-direction:column;gap:20px">
+
+        <!-- Admin Map -->
+        <div class="card">
+          <div class="card-title">🗺️ Live Tracking Map</div>
+          <div id="admin-map" style="height:400px;border-radius:var(--radius-md);overflow:hidden"></div>
+          <p style="font-size:.75rem;color:var(--text-muted);margin-top:10px">
+            🔴 Red pins = active users. Map updates in real-time via Socket.IO.
+          </p>
+        </div>
+
+        <!-- Users Table -->
+        <div class="card">
+          <div class="card-title">👥 Registered Users</div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Email</th>
+                  <th>Status</th>
+                  <th>Last Location</th>
+                  <th>Joined</th>
+                  <th>Role</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for user in users %}
+                <tr data-user="{{ user.id }}">
+                  <td>
+                    <div style="display:flex;align-items:center;gap:8px">
+                      <div class="contact-avatar" style="width:28px;height:28px;font-size:.7rem;flex-shrink:0">
+                        {{ user.name[0].upper() }}
+                      </div>
+                      {{ user.name }}
+                    </div>
+                  </td>
+                  <td>{{ user.email }}</td>
+                  <td class="user-status">
+                    {% if user.is_active_tracking %}
+                    <span class="badge badge-success"><span class="live-dot"></span> Live</span>
+                    {% else %}
+                    <span class="badge badge-muted">● Offline</span>
+                    {% endif %}
+                  </td>
+                  <td class="user-location" style="font-size:.78rem">
+                    {% if user.latest_location %}
+                      {{ user.latest_location.address[:40] + '…' if user.latest_location.address and user.latest_location.address|length > 40 else user.latest_location.address or '—' }}
+                    {% else %}—{% endif %}
+                  </td>
+                  <td style="font-size:.78rem">{{ user.created_at.strftime('%d %b %Y') }}</td>
+                  <td>
+                    {% if user.is_admin %}
+                    <span class="badge badge-warning">Admin</span>
+                    {% else %}
+                    <span class="badge badge-muted">User</span>
+                    {% endif %}
+                  </td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+      </div><!-- /left -->
+
+      <!-- Right: Live Alerts -->
+      <div style="display:flex;flex-direction:column;gap:16px">
+
+        <div class="card">
+          <div class="card-title">🚨 Live Emergency Alerts</div>
+          <div id="live-alerts">
+            {% for alert in alerts[:5] %}
+            <div class="card" style="border-color:{% if not alert.resolved %}var(--danger){% else %}var(--border){% endif %};margin-bottom:12px;padding:14px">
+              <div style="display:flex;align-items:center;justify-content:space-between">
+                <span class="badge {% if alert.resolved %}badge-success{% else %}badge-danger{% endif %}">
+                  {{ '✅ Resolved' if alert.resolved else '🚨 ' + alert.alert_type }}
+                </span>
+                <small style="color:var(--text-muted)">{{ alert.timestamp.strftime('%H:%M') }}</small>
+              </div>
+              <p style="margin:8px 0 4px;font-weight:600;font-size:.875rem">
+                {{ alert.user.name }}
+              </p>
+              <p style="font-size:.8rem;color:var(--text-secondary)">{{ alert.message or '—' }}</p>
+              {% if alert.latitude %}
+              <a href="https://maps.google.com/?q={{ alert.latitude }},{{ alert.longitude }}"
+                 target="_blank" class="btn btn-outline btn-sm" style="margin-top:8px">
+                🗺 View Location
+              </a>
+              {% endif %}
+            </div>
+            {% else %}
+            <div style="text-align:center;padding:24px;color:var(--text-muted)">
+              No alerts yet. Real-time alerts will appear here.
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+
+        <!-- Quick stats -->
+        <div class="card">
+          <div class="card-title">📊 Alert Breakdown</div>
+          {% set sos_count = alerts | selectattr('alert_type','eq','SOS') | list | length %}
+          {% set em_count  = alerts | selectattr('alert_type','eq','EMERGENCY') | list | length %}
+          <div style="display:flex;flex-direction:column;gap:10px">
+            <div style="display:flex;justify-content:space-between;align-items:center">
+              <span style="font-size:.875rem">🆘 SOS Alerts</span>
+              <span class="badge badge-danger">{{ sos_count }}</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:center">
+              <span style="font-size:.875rem">🚨 Auto-Detected</span>
+              <span class="badge badge-warning">{{ em_count }}</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:center">
+              <span style="font-size:.875rem">✅ Resolved</span>
+              <span class="badge badge-success">{{ alerts | selectattr('resolved') | list | length }}</span>
+            </div>
+          </div>
+        </div>
+
+      </div><!-- /right -->
+
+    </div>
+  </div>
+</div>
+{% endblock %}

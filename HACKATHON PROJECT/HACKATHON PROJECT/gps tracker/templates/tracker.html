@@ -1,0 +1,233 @@
+{% extends "base.html" %}
+{% block title %}Live Tracker — GPS Emergency Tracker{% endblock %}
+
+{% block content %}
+<div class="page">
+  <div class="container-fluid">
+
+    <div class="tracker-layout">
+      <!-- ── Sidebar ── -->
+      <div class="tracker-sidebar">
+
+        <!-- Status Card -->
+        <div class="card" style="padding:20px">
+          <div class="card-title">🛰️ Tracking Status</div>
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+            <span id="track-status" class="badge badge-muted">● Idle</span>
+            <button id="tracking-btn" class="btn btn-primary btn-sm" onclick="startTracking()">▶ Start Tracking</button>
+          </div>
+          <div id="current-address" style="font-size:.8rem;color:var(--text-muted);min-height:32px;line-height:1.4">
+            Start tracking to see your address…
+          </div>
+        </div>
+
+        <!-- Info Row -->
+        <div class="card" style="padding:16px">
+          <div class="info-row">
+            <div class="info-item">
+              <div class="info-value" id="info-speed">—</div>
+              <div class="info-label">Speed</div>
+            </div>
+            <div class="info-item">
+              <div class="info-value" id="info-accuracy">—</div>
+              <div class="info-label">Accuracy</div>
+            </div>
+            <div class="info-item">
+              <div class="info-value" id="info-time">—</div>
+              <div class="info-label">Updated</div>
+            </div>
+          </div>
+          <hr class="divider" style="margin:12px 0">
+          <div style="display:flex;gap:8px;font-size:.75rem">
+            <div style="flex:1;text-align:center">
+              <div style="color:var(--text-muted)">Latitude</div>
+              <div style="font-weight:600;font-size:.85rem" id="info-lat">—</div>
+            </div>
+            <div style="flex:1;text-align:center">
+              <div style="color:var(--text-muted)">Longitude</div>
+              <div style="font-weight:600;font-size:.85rem" id="info-lon">—</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- SOS -->
+        <div class="card" style="padding:24px;text-align:center">
+          <div class="card-title" style="justify-content:center">🆘 Emergency SOS</div>
+          
+          <div style="display:flex; justify-content:center; align-items:center; gap:30px; margin:16px 0">
+            <!-- Manual SOS Button -->
+            <div class="sos-btn-wrap">
+              <div class="sos-ring"></div>
+              <div class="sos-ring"></div>
+              <button class="btn-sos" id="sos-btn" onclick="triggerSOS()">
+                <span class="sos-icon">🆘</span>
+                SOS
+              </button>
+            </div>
+            
+            <!-- Voice Assistant Button -->
+            <div style="display:flex; flex-direction:column; align-items:center; gap:8px;">
+              <button id="voice-btn-icon" onclick="toggleVoiceAssistant()" style="
+                width:70px; height:70px; border-radius:50%; 
+                background:linear-gradient(135deg,#6366f1,#8b5cf6);
+                border:none; color:#fff; font-size:1.8rem;
+                box-shadow:0 0 20px rgba(99,102,241,0.4);
+                cursor:pointer; transition:0.2s;
+                display:flex; align-items:center; justify-content:center;"
+                onmouseover="this.style.transform='scale(1.08)'"
+                onmouseout="this.style.transform='scale(1)'"
+                title="Toggle Always-Listening Voice Assistant">
+                🎙️
+              </button>
+              <div id="voice-status" style="font-size:0.75rem; color:var(--accent); font-weight:600; display:none; animation:blink 1.2s infinite">Listening...</div>
+            </div>
+          </div>
+          
+          <p style="font-size:.75rem;color:var(--text-muted)">
+            Tap SOS or use the Microphone to say "Help me"
+          </p>
+        </div>
+
+        <!-- Emergency Status -->
+        <div class="card" id="emergency-panel" style="padding:20px">
+          <div class="card-title">🛡️ Status</div>
+          <p style="color:var(--success);font-weight:600">✅ All Clear — Monitoring</p>
+        </div>
+
+        <!-- Call Panel (shown on emergency) -->
+        <div class="card" id="call-panel" style="padding:20px;display:none;
+             border-color:var(--danger);box-shadow:0 0 24px rgba(239,68,68,0.3)">
+          <!-- filled by renderCallPanel() in tracker.js -->
+        </div>
+
+        <!-- Safe Zones -->
+        <div class="card" style="padding:20px">
+          <div class="card-title">🏠 Safe Zones</div>
+          {% if safe_zones %}
+            {% for zone in safe_zones %}
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+              <div>
+                <div style="font-weight:600;font-size:.875rem">{{ zone.name }}</div>
+                <div style="font-size:.75rem;color:var(--text-muted)">Radius: {{ zone.radius_m }}m</div>
+              </div>
+              <span class="badge badge-success">Active</span>
+            </div>
+            {% endfor %}
+          {% else %}
+            <p style="font-size:.8rem;color:var(--text-muted)">No safe zones defined.</p>
+          {% endif %}
+          <button class="btn btn-ghost btn-sm" style="width:100%;margin-top:10px" onclick="addSafeZoneHere()">
+            + Add Zone at Current Location
+          </button>
+        </div>
+
+        <!-- Contacts quick-view -->
+        <div class="card" style="padding:20px">
+          <div class="card-title">👥 Emergency Contacts</div>
+          {% if contacts %}
+            {% for c in contacts %}
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+              <div class="contact-avatar" style="width:32px;height:32px;font-size:.75rem">
+                {{ c.name[0].upper() }}
+              </div>
+              <div style="flex:1;min-width:0">
+                <div style="font-size:.875rem;font-weight:600">{{ c.name }}</div>
+                <div style="font-size:.75rem;color:var(--text-muted)">{{ c.relation }}</div>
+              </div>
+              {% if c.phone %}
+              <a href="tel:{{ c.phone | replace(' ','') }}"
+                 style="display:flex;align-items:center;justify-content:center;
+                        width:30px;height:30px;border-radius:50%;flex-shrink:0;
+                        background:linear-gradient(135deg,var(--success),#059669);
+                        color:#fff;font-size:.85rem;text-decoration:none;
+                        box-shadow:0 0 10px rgba(16,185,129,0.35)"
+                 title="Call {{ c.name }}">
+                📞
+              </a>
+              {% endif %}
+            </div>
+            {% endfor %}
+          {% else %}
+          <p style="font-size:.8rem;color:var(--text-muted)">No contacts added yet.</p>
+          {% endif %}
+          <a href="{{ url_for('contacts') }}" class="btn btn-ghost btn-sm" style="width:100%;margin-top:8px">
+            Manage Contacts
+          </a>
+        </div>
+
+      </div><!-- /sidebar -->
+
+      <!-- ── Main Map Area ── -->
+      <div class="tracker-main">
+        <div class="card" style="padding:16px;flex:1;display:flex;flex-direction:column;gap:12px">
+          <div style="display:flex;align-items:center;justify-content:space-between">
+            <div class="card-title" style="margin:0">🗺️ Live Map</div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap">
+              <button class="btn btn-ghost btn-sm" onclick="state.map && state.map.locate({setView:true,maxZoom:17})" title="Center on location">
+                🎯 Center
+              </button>
+              <button class="btn btn-ghost btn-sm" onclick="enableManualPinDrop()" title="Click map to set location manually (useful on PC)">
+                📍 Set Manually
+              </button>
+              <a href="{{ url_for('history') }}" class="btn btn-ghost btn-sm">📋 History</a>
+            </div>
+          </div>
+
+          <div id="map" style="flex:1;min-height:420px"></div>
+        </div>
+      </div>
+
+    </div><!-- /tracker-layout -->
+  </div>
+</div>
+
+<!-- Alarm audio (silent by default, plays on emergency) -->
+<audio id="alarm-audio" loop preload="auto">
+  <source src="data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAA..." type="audio/wav">
+</audio>
+
+<!-- Inject emergency contacts + user info for JS -->
+<script>
+window.CURRENT_USER_NAME = {{ current_user.name | tojson }};
+window.EMERGENCY_CONTACTS = [
+  {% for c in contacts %}
+  { name: {{ c.name | tojson }}, phone: {{ (c.phone or '') | tojson }}, relation: {{ c.relation | tojson }} }{{ ',' if not loop.last }}
+  {% endfor %}
+];
+</script>
+
+<script src="{{ url_for('static', filename='js/tracker.js') }}"></script>
+<script src="{{ url_for('static', filename='js/voice.js') }}"></script>
+
+<script>
+// Update tracking status badge dynamically
+const origStart = window.startTracking;
+const origStop  = window.stopTracking;
+window.startTracking = function() {
+  document.getElementById("track-status").innerHTML = '<span class="live-dot"></span> Live';
+  document.getElementById("track-status").className = "badge badge-success";
+  if (origStart) origStart();
+};
+window.stopTracking = function() {
+  document.getElementById("track-status").textContent = "● Idle";
+  document.getElementById("track-status").className = "badge badge-muted";
+  if (origStop) origStop();
+};
+
+// Request notification permission on page load
+document.addEventListener('DOMContentLoaded', async () => {
+  if ('Notification' in window && Notification.permission === 'default') {
+    await requestNotificationPermission();
+  }
+  
+  // Auto-start the Always-Listening Voice Assistant
+  if (typeof toggleVoiceAssistant === 'function') {
+    setTimeout(() => {
+      if (!window.isVoiceAssistantActive) {
+        toggleVoiceAssistant();
+      }
+    }, 800); // Small delay to ensure everything is rendered
+  }
+});
+</script>
+{% endblock %}
